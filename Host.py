@@ -1,4 +1,7 @@
+#! /usr/bin/python3
 import SharedFunctions as sf
+import socket
+import platform
 
 ipList = []
 radioList = []
@@ -26,6 +29,7 @@ def getRadio(ip):
 
 
 def main():
+    print(platform.python_version())
     print("Starting up server")
 
     # Define the amount of SDRs that will be computing AoAs
@@ -40,8 +44,10 @@ def main():
 
     # Create a server socket at port 5000
     #serverIP = '127.0.0.1'
-    serverIP = '192.168.0.128'
+    #serverIP = '192.168.0.128'
+    serverIP = '192.168.0.250'
     serverPort = 5000
+
     s = sf.createSocket(serverIP, serverPort, serverBool=True)
 
     running = True
@@ -76,6 +82,7 @@ def main():
                 print("Wrong command")
 
         conn.close()
+    s.close()
 
 
 
