@@ -2,12 +2,18 @@ import SharedFunctions as sf
 import threading
 
 GNUThread = threading.Event()
-AoA = 90
 
 
 def runGNURadio():
     print("running gnu radio")
     #AoA should be updated in here somewhere
+
+def readAngle(filename):
+    with open(filename, 'r') as f:
+        for line in f:
+            AoA = float(line)
+            break
+    return AoA
 
 def main():
     print("Starting up client")
@@ -16,6 +22,8 @@ def main():
     # serverIP = '127.0.0.1'
     serverIP = '192.168.0.128'
     serverPort = 5000
+
+    filename = "/home/johan/Desktop/angles.txt"
 
     running = True
     while running:
@@ -31,6 +39,7 @@ def main():
                 threading.Thread(target = runGNURadio).start()
                 GNUThread.set()
         elif (task == b'AoA'):
+            AoA = readAngle(filename)
             s.sendall(AoA.to_bytes(1, byteorder='big'))
         elif (task == b'Shut down'):
             running = False
