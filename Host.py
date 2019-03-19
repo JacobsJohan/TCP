@@ -5,6 +5,8 @@ import platform
 import threading
 import time
 import keyboard
+import matplotlib.pyplot as plt
+import numpy as np
 
 ipList = []
 radioList = []
@@ -149,7 +151,39 @@ def inputCheck():
             pass
     print("Shutting down")
     return 0
-    
+
+
+# Perform triangulation based on 2 computed angles of arrival   
+def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
+    # Compute line parameters (a, b) from y = ax + b
+    a1 = np.tan(theta1)
+    b1 = y1 - a1*x1
+
+    a2 = -np.tan(np.pi/2 - theta2)
+    b2 = y2 - a2*x2
+
+    # Compute intersect of 2 lines
+    x = (b2 - b1)/(a1 - a2)
+    y = a1*x + b1 # y = a2*x + b2 (also works)
+
+    # Plot lines and intersect if desired
+    if plot:
+        X1 = np.linspace(0, 10, 101)
+        Y1 = a1*X1 + b1
+
+        X2 = np.linspace(0, 10, 101)
+        Y2 = a2*X2 + b2
+
+        plt.plot(X1, Y1, 'b')
+        plt.plot(X2, Y2, 'r')
+        plt.plot(x, y, '*')
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        plt.title('Triangulation')
+        plt.grid(True)
+        plt.show()
+
+    return (x, y) 
 
 def main():
     print("Starting up server...")
@@ -173,7 +207,6 @@ def main():
 
     #print("Press q to quit")
     threading.Thread(target = inputCheck).start()
-    
 
 
 if __name__ == '__main__':
