@@ -1,17 +1,20 @@
 import SharedFunctions as sf
+import fileMgmt as music
 import threading
+import os
 
 GNUThread = threading.Event()
 
 
+# Run the GRC flowgraph which updates the angle in a file
 def runGNURadio():
-    print("running gnu radio")
-    #AoA should be updated in here somewhere
+    print("Running gnu radio")
+    music.main()
 
 def readAngle(filename):
     with open(filename, 'r') as f:
         for line in f:
-            AoA = float(line)
+            AoA = line
             break
     return AoA
 
@@ -19,11 +22,12 @@ def main():
     print("Starting up client")
 
     # Create a client socket at the same IP and port as receiver in order to send to the server
-    # serverIP = '127.0.0.1'
-    serverIP = '192.168.0.128'
+    #serverIP = '192.168.0.128'
+    serverIP = '192.168.192.1'
     serverPort = 5000
 
-    filename = "/home/johan/Desktop/angles.txt"
+    filename = os.getcwd()
+    filename += '/angle.txt'
 
     running = True
     while running:
@@ -34,15 +38,17 @@ def main():
         # After connection is established, wait for input from Server
         task = s.recv(1024)
         print("New task is: ", task)
-        if (task == b'GNU'):
+        if (task == b'GRC'):
             if not(GNUThread.is_set()):
-                threading.Thread(target = runGNURadio).start()
+                threading.Thread(target = music.main).start()
                 GNUThread.set()
         elif (task == b'AoA'):
             AoA = readAngle(filename)
-            s.sendall(AoA.to_bytes(1, byteorder='big'))
+            #s.sendall(AoA.to_bytes(1, byteorder='big'))
+            s.sendall(AoA.encode('utf-8'))
         elif (task == b'Shut down'):
             running = False
+            music.exitThread.set()
         else:
             print("Got unknown command: ", task)
     #clientSock.close() #not needed apparently
