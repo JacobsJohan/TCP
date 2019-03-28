@@ -1,4 +1,3 @@
-#! /usr/bin/python3
 import SharedFunctions as sf
 import socket
 import platform
@@ -7,81 +6,41 @@ import time
 import keyboard
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 
-ipList = []
 radioList = []
 running = True
 
+# Create a radio with an IP-address, x position and y position (location of the
+# antenna array)
 class Radio:
-    def __init__(self, ip):
-        print("Creating radio")
+    def __init__(self, ip, x, y):
+        #print("Creating radio")
         self.ip = ip
+        self.x = x
+        self.y = y
         self.aoa = 0        # Initial AoA is 0
 
+# Function to read config file. On each line of the config file should be a dictionary with the anchor IP, x-position and y-position
+def readConfig(filename):
+    with open(filename, 'r') as f:
+        for line in f:
+            dict = json.loads(line)
+            radio = Radio(dict['ip'], dict['x'], dict['y'])
+            radioList.append(radio)
 
+
+# Find the connected device by comparing the IP that connected with the known IPs from the radioList
 def getRadio(ip):
     # Start of by checking if the radio exists
-    for i in range(len(ipList)):
-        if (ip == ipList[i]):
-            radio = radioList[i]
+    for radio in radioList:
+        if (ip == radio.ip):
             return radio
 
     # If previous loop does not find the radio, create a new one and return it
-    radio = Radio(ip)
-    radioList.append(radio)
-    return radio
+    print("Unknown connection from ", ip)
+    return -1
 
-# DEPRECATED
-def commandBasedConn():
-    # Define the amount of SDRs that will be computing AoAs
-    '''
-    while True:
-        try:
-            nrOfRadios = int(input("How many radios will be used? \n ->"))
-            break
-        except BaseException as e:
-            print(e)
-    '''
-
-    # Create a server socket at port 5000
-    #serverIP = '192.168.0.128'
-    serverIP = '192.168.0.250'
-    serverPort = 5000
-
-    s = sf.createSocket(serverIP, serverPort, serverBool=True)
-
-    while running:
-        s.listen(1)    # The 1 specifies the backlog parameter which is the amount of allowed connections
-        conn, addr = s.accept()    # conn = a new socket to send/rcv data; addr = the address on the other end
-        print("Connection from:" + str(addr))
-
-        # Check if ip already known
-        radio = getRadio(addr[0])
-
-        #data = int.from_bytes(data, byteorder='big')
-        #print("Received data is: ", data)
-        if (radio.ip == '192.168.0.170'):
-            print("Choose a command from: GNU, AoA, Shut down")
-            command = str(input("--> "))
-            conn.sendall(command.encode('utf-8'))
-
-            # Based on the given command, a reply is (not) expected
-            # GRC: tell client to run GNU radio flowgraph
-            if (command == 'GRC'):
-                print("No reply expected")
-            elif (command == 'AoA'):
-                aoa_b = conn.recv(1024)
-                aoa = int.from_bytes(aoa_b, byteorder='big')
-                print("AoA is: ", aoa)
-                # functionSetAoA
-            elif (command == 'Shut down'):
-                running = False
-            else:
-                print("Wrong command")
-
-        conn.close()
-    s.close()
-    
 
 # Setup a connection with a client. Tell client to start measuring AoA and then periodically request this angle.
 def setupConnection(ip, port):
@@ -93,6 +52,12 @@ def setupConnection(ip, port):
     conn, addr = s.accept()
     print("Connection from:" + str(addr))
 
+    # Get current radio object
+    radio = getRadio(addr[0])
+    if (radio == -1):
+        print("Shutting down")
+        return -1
+
     # Tell client to run GRC
     command = 'GRC'
     conn.sendall(command.encode('utf-8'))
@@ -100,8 +65,6 @@ def setupConnection(ip, port):
     # Wait 10s to ensure everything is up and running
     time.sleep(2)
     
-    # Get current radio object
-    radio = getRadio(addr[0])
 
     # Now that everything is up and running, continuously ask for the AoA
     while running:
@@ -125,6 +88,7 @@ def setupConnection(ip, port):
     time.sleep(1)
         
 
+# Function that checks if q is pressed on the keyboard. If so, it will shut down the system.
 def shutdownCheck():
     global running
     while True:
@@ -139,11 +103,12 @@ def shutdownCheck():
             print(e)
             break
 
-
+# Function that checks if q is pressed on the keyboard. If so, it will shut down the system.
 def inputCheck():
     global running
     while True:
-        command = str(input("Enter q to quit \n -->"))
+        command = raw_input("Enter q to quit \n -->")
+        #command = str(input("Enter q to quit \n -->"))
         if (command == 'q'):
             running = False
             break
@@ -188,8 +153,11 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
 def main():
     print("Starting up server...")
 
+    # Create radioList based on entries in config.txt
+    filename = 'config.txt'
+    readConfig(filename)
+
     serverIP = '192.168.192.1'
-    #serverIP = '192.168.0.250'
     serverPort = 5000
     
     # Define the amount of SDRs that will be computing AoAs
@@ -206,9 +174,66 @@ def main():
         threading.Thread(target = setupConnection, args = (serverIP, serverPort)).start()
 
     #print("Press q to quit")
-    threading.Thread(target = inputCheck).start()
+    threading.Thread(target = shutdownCheck).start()
 
 
 if __name__ == '__main__':
     main()
 
+
+
+
+'''
+
+
+# DEPRECATED
+def commandBasedConn():
+    # Define the amount of SDRs that will be computing AoAs
+    
+    while True:
+        try:
+            nrOfRadios = int(input("How many radios will be used? \n ->"))
+            break
+        except BaseException as e:
+            print(e)
+    
+
+    # Create a server socket at port 5000
+    #serverIP = '192.168.0.128'
+    serverIP = '192.168.0.250'
+    serverPort = 5000
+
+    s = sf.createSocket(serverIP, serverPort, serverBool=True)
+
+    while running:
+        s.listen(1)    # The 1 specifies the backlog parameter which is the amount of allowed connections
+        conn, addr = s.accept()    # conn = a new socket to send/rcv data; addr = the address on the other end
+        print("Connection from:" + str(addr))
+
+        # Check if ip already known
+        radio = getRadio(addr[0])
+
+        #data = int.from_bytes(data, byteorder='big')
+        #print("Received data is: ", data)
+        if (radio.ip == '192.168.0.170'):
+            print("Choose a command from: GNU, AoA, Shut down")
+            command = str(input("--> "))
+            conn.sendall(command.encode('utf-8'))
+
+            # Based on the given command, a reply is (not) expected
+            # GRC: tell client to run GNU radio flowgraph
+            if (command == 'GRC'):
+                print("No reply expected")
+            elif (command == 'AoA'):
+                aoa_b = conn.recv(1024)
+                aoa = int.from_bytes(aoa_b, byteorder='big')
+                print("AoA is: ", aoa)
+                # functionSetAoA
+            elif (command == 'Shut down'):
+                running = False
+            else:
+                print("Wrong command")
+
+        conn.close()
+    s.close()
+'''

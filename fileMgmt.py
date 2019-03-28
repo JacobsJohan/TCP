@@ -33,8 +33,12 @@ from gnuradio import qtgui
 import threading
 import time
 
+# Event to shut down thread if exitThread.is_set()
 exitThread = threading.Event()
 exitThread.clear()
+
+# Lock to make sure we don't write and read file at the same time
+fileLock = threading.Lock()
 
 class fileMgmt(gr.top_block, Qt.QWidget):
 
@@ -163,6 +167,7 @@ class fileMgmt(gr.top_block, Qt.QWidget):
         self.freq = freq
         self.analog_sig_source_x_0.set_frequency(self.freq)
 
+# DO NOT USE
 def stopThread(tb):
     while True:
         if (exitThread.is_set):
@@ -172,6 +177,46 @@ def stopThread(tb):
         else:
             time.sleep(1)
 
+# DO NOT USE
+def exitThreadfunction(tb):
+
+    t_start = time.time()
+    t_now = time.time()
+
+    runtime = 3
+
+    while (t_now - t_start < runtime):
+        print("Still running for ", round(runtime-(t_now-t_start)), " seconds")
+        time.sleep(1)
+        t_now = time.time()
+        
+    tb.stop()
+    tb.wait()
+    tb.close()
+    print("Shutting down")
+
+def exitQapp(qapp):
+    # Make sure that the application is up and running before trying to quit it
+    time.sleep(5)
+    t_start = time.time()
+    t_now = time.time()
+
+    runtime = 3
+
+    while (t_now - t_start < runtime):
+        print("Still running for ", round(runtime-(t_now-t_start)), " seconds")
+        time.sleep(1)
+        t_now = time.time()
+
+    qapp.quit()
+
+def shutDown(qapp):
+    while True:
+        if (exitThread.is_set()):
+            qapp.quit()
+            break
+        else:
+            time.sleep(1)
 
 def main(top_block_cls=fileMgmt, options=None):
 
@@ -185,7 +230,8 @@ def main(top_block_cls=fileMgmt, options=None):
     tb.start()
     tb.show()
 
-    threading.Thread(target = stopThread, args = (tb,)).start()
+    #threading.Thread(target = exitQapp, args=(qapp,)).start()
+    threading.Thread(target = shutDown, args=(qapp,)).start()
 
     def quitting():
         tb.stop()

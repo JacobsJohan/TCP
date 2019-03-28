@@ -12,6 +12,7 @@ def runGNURadio():
     music.main()
 
 def readAngle(filename):
+    AoA = 0
     with open(filename, 'r') as f:
         for line in f:
             AoA = line
@@ -51,6 +52,7 @@ def main():
             music.exitThread.set()
         else:
             print("Got unknown command: ", task)
+        s.close()
     #clientSock.close() #not needed apparently
 
 
