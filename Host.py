@@ -77,7 +77,7 @@ def setupConnection(ip, port):
         #radio.aoa = int.from_bytes(aoa_b, byteorder='big')
         radio.aoa = float(aoa_b.decode('utf-8'))
 
-        print("AoA is: ", radio.aoa)
+        #print("AoA is: ", radio.aoa)
         time.sleep(0.5)
         
     # When running = False, send message to client to shut down
@@ -174,7 +174,20 @@ def main():
         threading.Thread(target = setupConnection, args = (serverIP, serverPort)).start()
 
     #print("Press q to quit")
-    threading.Thread(target = shutdownCheck).start()
+    threading.Thread(target = inputCheck).start()
+
+    while running:
+        (xpos, ypos) = triangulate(radioList[0].x,
+                                   radioList[0].y,
+                                   radioList[0].aoa,
+                                   radioList[1].x,
+                                   radioList[1].y,
+                                   radioList[1].aoa,
+                                   plot=False)
+        xpos = round(xpos, 3)
+        ypos = round(ypos, 3)
+        print("Transmitter position is:", xpos, ypos)
+        time.sleep(0.5)
 
 
 if __name__ == '__main__':

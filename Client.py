@@ -12,7 +12,7 @@ def runGNURadio():
     music.main()
 
 def readAngle(filename):
-    AoA = 0
+    AoA = "0"
     with open(filename, 'r') as f:
         for line in f:
             AoA = line
@@ -32,8 +32,7 @@ def main():
 
     running = True
     while running:
-        #data = str(input("What is your message? \n--> "))
-        #data_b = data.encode('utf-8')
+        # Open a socket to connect with server
         s = sf.createSocket(serverIP, serverPort, serverBool=False)
 
         # After connection is established, wait for input from Server
