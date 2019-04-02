@@ -121,22 +121,28 @@ def inputCheck():
 # Perform triangulation based on 2 computed angles of arrival   
 def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
     # Compute line parameters (a, b) from y = ax + b
+    theta1 = theta1/180*np.pi
+    theta2 = theta2/180*np.pi
+
     a1 = np.tan(theta1)
     b1 = y1 - a1*x1
 
-    a2 = -np.tan(np.pi/2 - theta2)
+    theta2_ = theta2 - np.pi/2
+    a2 = np.tan(theta2_)
     b2 = y2 - a2*x2
 
     # Compute intersect of 2 lines
     x = (b2 - b1)/(a1 - a2)
     y = a1*x + b1 # y = a2*x + b2 (also works)
 
+    #print("a1:",a1)
+
     # Plot lines and intersect if desired
     if plot:
-        X1 = np.linspace(0, 10, 101)
+        X1 = np.linspace(0, 200, 2001)
         Y1 = a1*X1 + b1
 
-        X2 = np.linspace(0, 10, 101)
+        X2 = np.linspace(0, 200, 2001)
         Y2 = a2*X2 + b2
 
         plt.plot(X1, Y1, 'b')
