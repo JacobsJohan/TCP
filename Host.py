@@ -172,6 +172,7 @@ def computePosition():
         ypos = round(ypos, 3)
         print("Transmitter position is:", xpos, ypos)
         time.sleep(0.1)
+        
     
 
 def main():
@@ -194,12 +195,14 @@ def main():
             print(e)
 
     # Create 1 thread for each SDR
+    
     for i in range(nrOfRadios):
         serverPort += i
         threading.Thread(target = setupConnection, args = (serverIP, serverPort)).start()
-
+    
     #print("Press q to quit")
-    threading.Thread(target = inputCheck).start()
+    #threading.Thread(target = inputCheck).start() #blocks threads
+    threading.Thread(target = shutdownCheck).start()
     threading.Thread(target = computePosition).start()
 
     controls.GUI()

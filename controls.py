@@ -103,6 +103,8 @@ class EnvCanvas:
         # Return dx and dy
         dx = (self.xpos_new - self.xpos_old)
         dy = (self.ypos_new - self.ypos_old)
+        #dx = random.randint(-1,1)
+        #dy = random.randint(-1,1)
         return dx, dy
 
 
