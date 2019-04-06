@@ -7,9 +7,12 @@ import keyboard
 import matplotlib.pyplot as plt
 import numpy as np
 import json
+import controls
 
 radioList = []
 running = True
+xpos = 0
+ypos = 0
 
 # Create a radio with an IP-address, x position and y position (location of the
 # antenna array)
@@ -156,7 +159,23 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
 
     return (x, y) 
 
+def computePosition():
+    while running:
+        (xpos, ypos) = triangulate(radioList[0].x,
+                                   radioList[0].y,
+                                   radioList[0].aoa,
+                                   radioList[1].x,
+                                   radioList[1].y,
+                                   radioList[1].aoa,
+                                   plot=False)
+        xpos = round(xpos, 3)
+        ypos = round(ypos, 3)
+        print("Transmitter position is:", xpos, ypos)
+        time.sleep(0.1)
+    
+
 def main():
+    global xpos, ypos
     print("Starting up server...")
 
     # Create radioList based on entries in config.txt
@@ -181,19 +200,10 @@ def main():
 
     #print("Press q to quit")
     threading.Thread(target = inputCheck).start()
+    threading.Thread(target = computePosition).start()
 
-    while running:
-        (xpos, ypos) = triangulate(radioList[0].x,
-                                   radioList[0].y,
-                                   radioList[0].aoa,
-                                   radioList[1].x,
-                                   radioList[1].y,
-                                   radioList[1].aoa,
-                                   plot=False)
-        xpos = round(xpos, 3)
-        ypos = round(ypos, 3)
-        print("Transmitter position is:", xpos, ypos)
-        time.sleep(0.5)
+    controls.GUI()
+    
 
 
 if __name__ == '__main__':

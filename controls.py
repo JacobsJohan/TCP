@@ -2,13 +2,11 @@ from tkinter import *
 import time
 import random
 import threading
+import Host
 
 # GUI dimensions
 WIDTH = 720
 HEIGHT = 480
-
-xpos = 0
-ypos = 0
 
 # Class for the main functionality of the GUI
 class MainMenu:
@@ -70,8 +68,8 @@ class EnvCanvas:
         self.C.table = self.C.create_rectangle(self.C.tableCoords)
 
         # Create a circle to display transmitter position
-        self.xpos_new = self.C.topleftx + xpos
-        self.ypos_new = self.C.toplefty + ypos
+        self.xpos_new = self.C.topleftx + Host.xpos
+        self.ypos_new = self.C.toplefty + Host.ypos
         self.C.TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
         self.C.TX = self.C.create_oval(self.C.TXCoords)
 
@@ -99,29 +97,23 @@ class EnvCanvas:
         self.ypos_old = self.ypos_new
 
         # Update current position
-        self.xpos_new = self.C.topleftx + xpos
-        self.ypos_new = self.C.toplefty + ypos 
+        self.xpos_new = self.C.topleftx + Host.xpos
+        self.ypos_new = self.C.toplefty + Host.ypos 
 
         # Return dx and dy
         dx = (self.xpos_new - self.xpos_old)
         dy = (self.ypos_new - self.ypos_old)
         return dx, dy
-        
-def triangulation():
-    global xpos, ypos
-    while True:
-        xpos = xpos + random.randint(-1, 1)
-        ypos = ypos + random.randint(-1, 1)
-        time.sleep(0.1)
 
-def main():
+
+def GUI():
     root = Tk()
     root.geometry('{}x{}'.format(WIDTH, HEIGHT))
     root.resizable(width = False, height = False)
 
     MainMenu(root)
 
-    threading.Thread(target=triangulation).start()
+    #threading.Thread(target=triangulation).start()
 
     root.mainloop()
 
@@ -129,4 +121,15 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    GUI()
+
+
+# Deprecated: this was a test function to randomly move transmitter
+'''
+def triangulation():
+    global xpos, ypos
+    while True:
+        xpos = xpos + random.randint(-1, 1)
+        ypos = ypos + random.randint(-1, 1)
+        time.sleep(0.1)
+'''

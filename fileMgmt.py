@@ -37,8 +37,6 @@ import time
 exitThread = threading.Event()
 exitThread.clear()
 
-# Lock to make sure we don't write and read file at the same time
-fileLock = threading.Lock()
 
 class fileMgmt(gr.top_block, Qt.QWidget):
 
