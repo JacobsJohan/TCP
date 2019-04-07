@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 from tkinter import *
+import random
 
 radioList = []
-running = True
+state = 'ini'     # Can be 'run', 'pause' or 'quit' (or 'ini' for initial state)
 xpos = 0
 ypos = 0
 
@@ -74,7 +75,7 @@ def setupConnection(ip, port):
     
 
     # Now that everything is up and running, continuously ask for the AoA
-    while running:
+    while (state != 'quit'):
         s.listen(1)                             # The 1 specifies the backlog parameter which is the amount of allowed connections
         conn, addr = s.accept()                 # conn = a new socket to send/rcv data; addr = the address on the other end
 
@@ -98,12 +99,12 @@ def setupConnection(ip, port):
 # Function that checks if q is pressed on the keyboard. If so, it will shut down the system. Requires sudo access.
 # NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
 def shutdownCheck():
-    global running
+    global state
     while True:
         try:
             if (keyboard.is_pressed('q')):
                 print("Quitting")
-                running = False
+                state = 'quit'
                 break
             else:
                 pass
@@ -114,12 +115,12 @@ def shutdownCheck():
 # Function that checks if q is pressed on the keyboard. If so, it will shut down the system.
 # NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
 def inputCheck():
-    global running
+    global state
     while True:
         command = raw_input("Enter q to quit \n -->")
         #command = str(input("Enter q to quit \n -->"))
         if (command == 'q'):
-            running = False
+            state = 'quit'
             break
         else:
             pass
@@ -166,18 +167,28 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
     return (x, y) 
 
 def computePosition():
-    while running:
-        (xpos, ypos) = triangulate(radioList[0].x,
-                                   radioList[0].y,
-                                   radioList[0].aoa,
-                                   radioList[1].x,
-                                   radioList[1].y,
-                                   radioList[1].aoa,
-                                   plot=False)
-        xpos = round(xpos, 3)
-        ypos = round(ypos, 3)
-        print("Transmitter position is:", xpos, ypos)
-        time.sleep(0.1)
+    global xpos, ypos
+    while True:
+        if (state == 'run'): 
+            (xpos, ypos) = triangulate(radioList[0].x,
+                                       radioList[0].y,
+                                       radioList[0].aoa,
+                                       radioList[1].x,
+                                       radioList[1].y,
+                                       radioList[1].aoa,
+                                       plot=False)
+            ''' Testing
+            xpos = xpos + random.randint(-1,1)
+            ypos = ypos + random.randint(-1,1)
+            ''' 
+            xpos = round(xpos, 3)
+            ypos = round(ypos, 3)
+            print("Transmitter position is:", xpos, ypos)
+            time.sleep(0.1)
+        elif (state == 'pause' or state == 'ini'):
+            time.sleep(0.1)
+        else:
+            break
         
 ##################################################################
 # Everything related to the GUI
@@ -210,19 +221,23 @@ class MainMenu:
 
         
 
-    # Function to start app
+    # Function to start triangulation
     def startApp(self):
+        global state
         print("Start application")
+        state = 'run'
 
     # Function to pause app
     def pauseApp(self):
+        global state
         print("Pause application")
+        state = 'pause'
 
     # Function to stop app
     def stopApp(self):
-        global running
+        global state
         print("Stop application")
-        running = False
+        state = 'quit'
         self.root.destroy()
 
 
@@ -326,6 +341,7 @@ def main():
     #threading.Thread(target = shutdownCheck).start()
     threading.Thread(target = computePosition).start()
 
+    # Run the graphical user interface
     GUI()
     
 
