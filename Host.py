@@ -22,19 +22,20 @@ HEIGHT = 480
 # Create a radio with an IP-address, x position and y position (location of the
 # antenna array)
 class Radio:
-    def __init__(self, ip, x, y):
+    def __init__(self, ip, x, y, orientation):
         #print("Creating radio")
         self.ip = ip
         self.x = x
         self.y = y
-        self.aoa = 0        # Initial AoA is 0
+        self.aoa = 0                    # Initial AoA is 0
+        self.orientation = orientation  # Relative orientation for triangulation
 
 # Function to read config file. On each line of the config file should be a dictionary with the anchor IP, x-position and y-position
 def readConfig(filename):
     with open(filename, 'r') as f:
         for line in f:
             dict = json.loads(line)
-            radio = Radio(dict['ip'], dict['x'], dict['y'])
+            radio = Radio(dict['ip'], dict['x'], dict['y'], dict['orientation'])
             radioList.append(radio)
 
 
@@ -146,6 +147,7 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
     y = a1*x + b1 # y = a2*x + b2 (also works)
 
     #print("a1:",a1)
+    #print("a2:",a2)
 
     # Plot lines and intersect if desired
     if plot:
@@ -164,12 +166,71 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
         plt.grid(True)
         plt.show()
 
-    return (x, y) 
+    return (x, y)
+
+# Takes tuples of 4 arguments as input (xpos, ypos, angle, orientation) and performs triangulation based on that
+# by taking the average over the n computed positions
+def triangulate_n():
+    narg = len(radioList)
+    if (narg < 2):
+        print("Need at least 2 antenna arrays for triangulation")
+        return
+
+    A = [0]*narg
+    B = [0]*narg
+    X = [0]*(narg-1)
+    Y = [0]*(narg-1)
+    for i in range(narg):
+        # Note: these local variables are only defined to improve readability
+        x_rig = radioList[i].x
+        y_rig = radioList[i].y
+        theta = radioList[i].aoa / 180 * np.pi
+        orientation = radioList[i].orientation
+        
+        # Check if the angle needs to be adjusted based on the position of the antenna array
+        if (orientation == 1):
+            #theta = np.pi - theta
+            theta = theta - np.pi/2
+        elif (orientation == 2):
+            theta = np.pi + theta
+        elif (orientation == 3):
+            theta = 3.0/2.0*np.pi + theta
+        else:
+            pass
+
+        # Slope & intersection
+        A[i] = np.tan(theta)
+        B[i] = y_rig - A[i]*x_rig
+
+    # Compute intersection of 2 lines with equation y = a*x + b
+    for i in range(narg-1):
+        X[i] = (B[i+1] - B[0]) / (A[0] - A[i+1])
+        Y[i] = A[i]*X[i] + B[i]
+        
+    # Now we have the position computed based on narg lines. Take the average of all results to find final result
+    x = 0
+    y = 0
+    n = 0
+    for i in range(narg-1):
+        # Make sure that a and b are not equal to inf. Else this could have given a division by 0 in the previous step
+        if (np.abs(A[i]) < 1e6 and np.abs(B[i]) < 1e6):
+            x = x + X[i]
+            y = y + Y[i]
+            n = n + 1
+        else:
+            pass
+    x = x/n
+    y = y/n
+    return (x, y)
+        
 
 def computePosition():
     global xpos, ypos
+
+    # Continuously perform triangulation
     while True:
-        if (state == 'run'): 
+        if (state == 'run'):
+            '''
             (xpos, ypos) = triangulate(radioList[0].x,
                                        radioList[0].y,
                                        radioList[0].aoa,
@@ -177,10 +238,8 @@ def computePosition():
                                        radioList[1].y,
                                        radioList[1].aoa,
                                        plot=False)
-            ''' Testing
-            xpos = xpos + random.randint(-1,1)
-            ypos = ypos + random.randint(-1,1)
-            ''' 
+            '''
+            (xpos, ypos) = triangulate_n()
             xpos = round(xpos, 3)
             ypos = round(ypos, 3)
             print("Transmitter position is:", xpos, ypos)
