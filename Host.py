@@ -12,12 +12,14 @@ import random
 
 radioList = []
 state = 'ini'     # Can be 'run', 'pause' or 'quit' (or 'ini' for initial state)
-xpos = 0
-ypos = 0
+xpos = 150
+ypos = 150
 
 # GUI dimensions
 WIDTH = 720
 HEIGHT = 480
+
+sleep_time = 0.1
 
 # Create a radio with an IP-address, x position and y position (location of the
 # antenna array)
@@ -87,7 +89,7 @@ def setupConnection(ip, port):
         radio.aoa = float(aoa_b.decode('utf-8'))
 
         #print("AoA is: ", radio.aoa)
-        time.sleep(0.5)
+        time.sleep(sleep_time)
         
     # When running = False, send message to client to shut down
     s.listen(1)
@@ -243,7 +245,7 @@ def computePosition():
             xpos = round(xpos, 3)
             ypos = round(ypos, 3)
             print("Transmitter position is:", xpos, ypos)
-            time.sleep(0.1)
+            time.sleep(sleep_time)
         elif (state == 'pause' or state == 'ini'):
             time.sleep(0.1)
         else:
@@ -324,6 +326,10 @@ class EnvCanvas:
         self.C.TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
         self.C.TX = self.C.create_oval(self.C.TXCoords)
 
+        #self.C.create_oval(203, 203, 205, 205)
+        #self.C.create_oval(213, 213, 215, 215)
+        #self.C.create_oval(223, 223, 225, 225)
+
         # Create rectangles for the positions of the antenna arrays
         self.array1Coords = (self.C.toplefty + 1*2, self.C.topleftx + 58*2, self.C.toplefty + 12*2, self.C.topleftx + 82*2)
         self.array1 = self.C.create_rectangle(self.array1Coords)
@@ -338,9 +344,17 @@ class EnvCanvas:
     # Right now, this function just needs to get the correct dx and dy for the movement.
     def updateCanvas(self):
         #print("update canvas")
+        # Test code
+        #(dx, dy) = (5, 5)
+        #self.xpos_new = self.xpos_new + dx
+        #self.ypos_new = self.ypos_new + dy
+        #TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
+        #self.C.TX = self.C.create_oval(TXCoords)
+
+        # Correct code
         dx, dy = self.updatePosition()
         self.C.move(self.C.TX, 2*dx, 2*dy)  # Move it twice as for to maintain scaling within figure
-        self.root.after(100, self.updateCanvas)
+        self.root.after(sleep_time*1000, self.updateCanvas)
 
     def updatePosition(self):
         # Previous position becomes old position
@@ -352,10 +366,10 @@ class EnvCanvas:
         self.ypos_new = self.C.toplefty + ypos 
 
         # Return dx and dy
-        dx = (self.xpos_new - self.xpos_old)
-        dy = (self.ypos_new - self.ypos_old)
-        #dx = random.randint(-1,1)
-        #dy = random.randint(-1,1)
+        #dx = (self.xpos_new - self.xpos_old)
+        #dy = (self.ypos_new - self.ypos_old)
+        dx = random.randint(-1,1)
+        dy = random.randint(-1,1)
         return dx, dy
 
 
