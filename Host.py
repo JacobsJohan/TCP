@@ -80,12 +80,23 @@ def setupConnection(ip, port):
         s.listen(1)                             # The 1 specifies the backlog parameter which is the amount of allowed connections
         conn, addr = s.accept()                 # conn = a new socket to send/rcv data; addr = the address on the other end
 
-        command = 'AoA'
-        conn.sendall(command.encode('utf-8'))
-        aoa_b = conn.recv(1024)
-        #radio.aoa = int.from_bytes(aoa_b, byteorder='big')
-        radio.aoa = float(aoa_b.decode('utf-8'))
-
+        if (state == 'run'):
+            command = 'AoA'
+            conn.sendall(command.encode('utf-8'))
+            aoa_b = conn.recv(1024)
+            radio.aoa = float(aoa_b.decode('utf-8'))
+        else:
+            # System is paused, so keep checking if it is unpaused
+            while True:
+                if (state == 'run'):
+                    command = 'AoA'
+                    conn.sendall(command.encode('utf-8'))
+                    aoa_b = conn.recv(1024)
+                    radio.aoa = float(aoa_b.decode('utf-8'))
+                elif (state == 'quit'):
+                    break
+                else:
+                    time.sleep(0.5)
         #print("AoA is: ", radio.aoa)
         time.sleep(0.5)
         
@@ -222,10 +233,34 @@ def triangulate_n():
     x = x/n
     y = y/n
     return (x, y)
+
+# Kalman filter for a system without known input
+def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
+    # Prediction step
+    x_hat = np.matmul(F, x_prev)
+    P_hat = np.matmul(np.matmul(F, P_prev), F.T) + Q
+
+    # Innovation step
+    S = np.matmul(np.matmul(H, P_hat), H.T) + R
+    K = np.matmul(np.matmul(P_hat, H.T), np.linalg.inv(S))
+    P_new = np.matmul((np.identity(K.shape[0]) - np.matmul(K, H)), P_hat)
+    y_tilde = y - np.matmul(H, x_hat)
+    x_new = x_hat + np.matmul(K, y_tilde)
+    # delta = np.abs(x_prev[2,1] - x_new[2,1])
+    return (x_new, P_new)
+    
         
 
+F = np.identity(2)
+H = np.identity(2)
+P_prev = np.identity(2)
+x_prev = np.array((0, 0))
+R = np.identity(2)
+Q = np.identity(2)*0.1
+
+# Continuosly compute the position of the transmitter, unless the system is paused.
 def computePosition():
-    global xpos, ypos
+    global xpos, ypos, x_prev, P_prev
 
     # Continuously perform triangulation
     while True:
@@ -240,8 +275,15 @@ def computePosition():
                                        plot=False)
             '''
             (xpos, ypos) = triangulate_n()
-            xpos = round(xpos, 3)
-            ypos = round(ypos, 3)
+
+            # Apply Kalman filter
+            meas = np.array((xpos, ypos))
+            (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
+            x_prev = x_new
+            P_prev = P_new
+            
+            xpos = round(x_new[0], 3) #xpos = round(xpos, 3)
+            ypos = round(x_new[1], 3) #ypos = round(ypos, 3)
             print("Transmitter position is:", xpos, ypos)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):
