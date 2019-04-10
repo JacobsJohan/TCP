@@ -9,6 +9,7 @@ import numpy as np
 import json
 from tkinter import *
 import random
+from decimal import Decimal
 
 radioList = []
 state = 'ini'     # Can be 'run', 'pause' or 'quit' (or 'ini' for initial state)
@@ -28,6 +29,7 @@ class Radio:
         self.x = x
         self.y = y
         self.aoa = 0                    # Initial AoA is 0
+        self.timestamp = 0              # Initial timestamp is 0
         self.orientation = orientation  # Relative orientation for triangulation
 
 # Function to read config file. On each line of the config file should be a dictionary with the anchor IP, x-position and y-position
@@ -83,16 +85,26 @@ def setupConnection(ip, port):
         if (state == 'run'):
             command = 'AoA'
             conn.sendall(command.encode('utf-8'))
-            aoa_b = conn.recv(1024)
-            radio.aoa = float(aoa_b.decode('utf-8'))
+            message_enc = conn.recv(1024)
+            message_dec = aoa_b.decode('utf-8')
+            messageList = message_dec.strip(' ()\n').split(',')
+            AoA = Decimal(messageList[0])
+            timestamp = Decimal((messageList[1]))
+                    
+            radio.aoa = float(AoA)
         else:
             # System is paused, so keep checking if it is unpaused
             while True:
                 if (state == 'run'):
                     command = 'AoA'
                     conn.sendall(command.encode('utf-8'))
-                    aoa_b = conn.recv(1024)
-                    radio.aoa = float(aoa_b.decode('utf-8'))
+                    message_enc = conn.recv(1024)
+                    message_dec = aoa_b.decode('utf-8')
+                    messageList = message_dec.strip(' ()\n').split(',')
+                    AoA = Decimal(messageList[0])
+                    timestamp = Decimal((messageList[1]))
+                    
+                    radio.aoa = float(AoA)
                 elif (state == 'quit'):
                     break
                 else:
@@ -277,25 +289,20 @@ def computePosition():
     # Continuously perform triangulation
     while True:
         if (state == 'run'):
-            '''
-            (xpos, ypos) = triangulate(radioList[0].x,
-                                       radioList[0].y,
-                                       radioList[0].aoa,
-                                       radioList[1].x,
-                                       radioList[1].y,
-                                       radioList[1].aoa,
-                                       plot=False)
-            '''
             (xpos, ypos) = triangulate_n()
 
             # Apply Kalman filter
+            '''
             meas = np.array((xpos, ypos))
             (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
             x_prev = x_new
             P_prev = P_new
             
-            xpos = round(x_new[0], 3) #xpos = round(xpos, 3)
-            ypos = round(x_new[1], 3) #ypos = round(ypos, 3)
+            xpos = round(x_new[0], 3)
+            ypos = round(x_new[1], 3)
+            '''
+            xpos = round(xpos, 3)
+            ypos = round(ypos, 3)
             print("Transmitter position is:", xpos, ypos)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):

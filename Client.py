@@ -3,7 +3,6 @@ import fileMgmt as music
 import threading
 import os
 import time
-from decimal import Decimal
 
 GNUThread = threading.Event()
 
@@ -13,8 +12,9 @@ def runGNURadio():
     print("Running gnu radio")
     music.main()
 
-def readAngle(filename):
-    AoA = "0"
+# Read out the file that contains a single line with (AoA, timestamp)
+def readFile(filename):
+    AoA = "(0, 0)"
     with open(filename, 'r') as f:
         for line in f:
             AoA = line
@@ -45,7 +45,7 @@ def main():
                 threading.Thread(target = music.main).start()
                 GNUThread.set()
         elif (task == b'AoA'):
-            AoA = readAngle(filename)
+            AoA = readFile(filename)
             #s.sendall(AoA.to_bytes(1, byteorder='big'))
             s.sendall(AoA.encode('utf-8'))
         elif (task == b'Shut down'):
