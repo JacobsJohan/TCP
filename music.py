@@ -3,7 +3,7 @@
 ##################################################
 # GNU Radio Python Flow Graph
 # Title: Music
-# Generated: Thu Mar 28 11:42:52 2019
+# Generated: Wed Apr 10 19:39:35 2019
 ##################################################
 
 if __name__ == '__main__':
@@ -152,7 +152,7 @@ class music(gr.top_block, Qt.QWidget):
 
         self._qtgui_time_sink_x_0_win = sip.wrapinstance(self.qtgui_time_sink_x_0.pyqwidget(), Qt.QWidget)
         self.top_grid_layout.addWidget(self._qtgui_time_sink_x_0_win)
-        self.musicToFile_musicToFile_0 = musicToFile.musicToFile(4, 200000, 1, 0.06, freq/1e6)
+        self.musicToFile_musicToFile2_0 = musicToFile.musicToFile2(4, 200000, 1, 0.06, freq/1e6)
         self.custom_Arg_to_Complex_2 = custom.Arg_to_Complex()
         self.custom_Arg_to_Complex_1 = custom.Arg_to_Complex()
         self.custom_Arg_to_Complex_0 = custom.Arg_to_Complex()
@@ -178,17 +178,17 @@ class music(gr.top_block, Qt.QWidget):
         self.connect((self.blocks_multiply_const_vxx_0, 0), (self.custom_Arg_to_Complex_1, 0))
         self.connect((self.blocks_multiply_const_vxx_0_0, 0), (self.custom_Arg_to_Complex_2, 0))
         self.connect((self.blocks_multiply_const_vxx_1, 0), (self.custom_Arg_to_Complex_0, 0))
-        self.connect((self.blocks_multiply_xx_0, 0), (self.musicToFile_musicToFile_0, 1))
-        self.connect((self.blocks_multiply_xx_0_0, 0), (self.musicToFile_musicToFile_0, 3))
-        self.connect((self.blocks_multiply_xx_0_1, 0), (self.musicToFile_musicToFile_0, 2))
+        self.connect((self.blocks_multiply_xx_0, 0), (self.musicToFile_musicToFile2_0, 1))
+        self.connect((self.blocks_multiply_xx_0_0, 0), (self.musicToFile_musicToFile2_0, 3))
+        self.connect((self.blocks_multiply_xx_0_1, 0), (self.musicToFile_musicToFile2_0, 2))
         self.connect((self.custom_Arg_to_Complex_0, 0), (self.blocks_multiply_xx_0, 1))
         self.connect((self.custom_Arg_to_Complex_1, 0), (self.blocks_multiply_xx_0_1, 1))
         self.connect((self.custom_Arg_to_Complex_2, 0), (self.blocks_multiply_xx_0_0, 1))
-        self.connect((self.musicToFile_musicToFile_0, 0), (self.blocks_null_sink_0, 0))
+        self.connect((self.musicToFile_musicToFile2_0, 0), (self.blocks_null_sink_0, 0))
         self.connect((self.uhd_usrp_source_0, 1), (self.blocks_multiply_xx_0, 0))
         self.connect((self.uhd_usrp_source_0, 3), (self.blocks_multiply_xx_0_0, 0))
         self.connect((self.uhd_usrp_source_0, 2), (self.blocks_multiply_xx_0_1, 0))
-        self.connect((self.uhd_usrp_source_0, 0), (self.musicToFile_musicToFile_0, 0))
+        self.connect((self.uhd_usrp_source_0, 0), (self.musicToFile_musicToFile2_0, 0))
         self.connect((self.uhd_usrp_source_0, 0), (self.qtgui_time_sink_x_0, 0))
         self.connect((self.uhd_usrp_source_0, 1), (self.qtgui_time_sink_x_0, 1))
         self.connect((self.uhd_usrp_source_0, 2), (self.qtgui_time_sink_x_0, 2))
@@ -216,6 +216,7 @@ class music(gr.top_block, Qt.QWidget):
         self.uhd_usrp_source_0.set_center_freq(self.freq, 1)
         self.uhd_usrp_source_0.set_center_freq(self.freq, 2)
         self.uhd_usrp_source_0.set_center_freq(self.freq, 3)
+
 
 # Function to shut down GNU Radio app
 def shutDown(qapp):
