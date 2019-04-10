@@ -258,6 +258,18 @@ x_prev = np.array((0, 0))
 R = np.identity(2)
 Q = np.identity(2)*0.1
 
+
+# With velocity
+'''
+dt = 1
+F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
+P_prev = np.identity(4)
+x_prev = np.zeros((4, 1))
+R = np.identity(2)
+Q = np.identity(4)*0.000001
+'''
+
 # Continuosly compute the position of the transmitter, unless the system is paused.
 def computePosition():
     global xpos, ypos, x_prev, P_prev
