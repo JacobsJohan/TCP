@@ -326,9 +326,9 @@ class EnvCanvas:
         self.C.TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
         self.C.TX = self.C.create_oval(self.C.TXCoords)
 
-        #self.C.create_oval(203, 203, 205, 205)
-        #self.C.create_oval(213, 213, 215, 215)
-        #self.C.create_oval(223, 223, 225, 225)
+        # Create a line that will be followed by transmitter
+        self.C.target = self.C.create_line(self.C.topleftx + 50, (self.C.botrighty - self.C.toplefty)/2 + 50, self.C.botrightx - 200, (self.C.botrighty - self.C.toplefty)/2 + 50)
+        self.C.itemconfig(self.C.target, fill='blue')
 
         # Create rectangles for the positions of the antenna arrays
         self.array1Coords = (self.C.toplefty + 1*2, self.C.topleftx + 58*2, self.C.toplefty + 12*2, self.C.topleftx + 82*2)
@@ -344,17 +344,15 @@ class EnvCanvas:
     # Right now, this function just needs to get the correct dx and dy for the movement.
     def updateCanvas(self):
         #print("update canvas")
-        # Test code
-        #(dx, dy) = (5, 5)
-        #self.xpos_new = self.xpos_new + dx
-        #self.ypos_new = self.ypos_new + dy
-        #TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
-        #self.C.TX = self.C.create_oval(TXCoords)
 
         # Correct code
         dx, dy = self.updatePosition()
-        self.C.move(self.C.TX, 2*dx, 2*dy)  # Move it twice as for to maintain scaling within figure
-        self.root.after(sleep_time*1000, self.updateCanvas)
+        self.xpos_new = self.xpos_new + 2*dx
+        self.ypos_new = self.ypos_new + 2*dy
+        TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
+        self.C.TX = self.C.create_oval(TXCoords)
+        #self.C.move(self.C.TX, 2*dx, 2*dy)  # Move it twice as for to maintain scaling within figure
+        self.root.after(1000, self.updateCanvas)
 
     def updatePosition(self):
         # Previous position becomes old position
@@ -366,10 +364,10 @@ class EnvCanvas:
         self.ypos_new = self.C.toplefty + ypos 
 
         # Return dx and dy
-        #dx = (self.xpos_new - self.xpos_old)
-        #dy = (self.ypos_new - self.ypos_old)
-        dx = random.randint(-1,1)
-        dy = random.randint(-1,1)
+        dx = (self.xpos_new - self.xpos_old)
+        dy = (self.ypos_new - self.ypos_old)
+        #dx = random.randint(0,5)
+        #dy = random.randint(0,5)
         return dx, dy
 
 
