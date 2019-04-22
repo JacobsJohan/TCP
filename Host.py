@@ -345,10 +345,15 @@ class EnvCanvas:
         self.C.table = self.C.create_rectangle(self.C.tableCoords)
 
         # Create a circle to display transmitter position
+        self.xpos_old = 0
+        self.ypos_old = 0
         self.xpos_new = self.C.topleftx + xpos
         self.ypos_new = self.C.toplefty + ypos
         self.C.TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
         self.C.TX = self.C.create_oval(self.C.TXCoords)
+
+        # Create counter object
+        self.counter = 0
 
         # Create rectangles for the positions of the antenna arrays
         self.array1Coords = (self.C.toplefty + 1*2, self.C.topleftx + 58*2, self.C.toplefty + 12*2, self.C.topleftx + 82*2)
@@ -369,19 +374,33 @@ class EnvCanvas:
         self.root.after(100, self.updateCanvas)
 
     def updatePosition(self):
-        # Previous position becomes old position
-        self.xpos_old = self.xpos_new
-        self.ypos_old = self.ypos_new
-
         # Update current position
         self.xpos_new = self.C.topleftx + xpos
-        self.ypos_new = self.C.toplefty + ypos 
+        self.ypos_new = self.C.toplefty + ypos
+
+        # Check if new position is very far away, which is the case if AoA was incorrect.
+        if (abs(self.xpos_old - self.xpos_new) > 50 | abs(self.ypos_new - self.ypos_old) > 50):
+            self.counter += 1
+            # If this happens more than 5 times, then the position probably did change that much.
+            # Reset counter and compute dx, dy
+            if (self.counter > 5):
+                pass
+            else:
+                return 0, 0
+
+        # Reset counter
+        self.counter = 0
 
         # Return dx and dy
         dx = (self.xpos_new - self.xpos_old)
         dy = (self.ypos_new - self.ypos_old)
         #dx = random.randint(-1,1)
         #dy = random.randint(-1,1)
+
+        # Previous position becomes old position
+        self.xpos_old = self.xpos_new
+        self.ypos_old = self.ypos_new
+
         return dx, dy
 
 
