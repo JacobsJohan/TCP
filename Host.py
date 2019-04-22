@@ -7,7 +7,7 @@ import keyboard
 import matplotlib.pyplot as plt
 import numpy as np
 import json
-from tkinter import *
+from Tkinter import *
 import random
 from decimal import Decimal
 
@@ -23,9 +23,10 @@ HEIGHT = 480
 # Create a radio with an IP-address, x position and y position (location of the
 # antenna array)
 class Radio:
-    def __init__(self, ip, x, y, orientation):
+    def __init__(self, ip, port, x, y, orientation):
         #print("Creating radio")
         self.ip = ip
+        self.port = port
         self.x = x
         self.y = y
         self.aoa = 0                    # Initial AoA is 0
@@ -36,8 +37,8 @@ class Radio:
 def readConfig(filename):
     with open(filename, 'r') as f:
         for line in f:
-            dict = json.loads(line)
-            radio = Radio(dict['ip'], dict['x'], dict['y'], dict['orientation'])
+            Dict = json.loads(line)
+            radio = Radio(Dict['ip'], Dict['port'], Dict['x'], Dict['y'], Dict['orientation'])
             radioList.append(radio)
 
 
@@ -53,6 +54,20 @@ def getRadio(ip):
     return -1
 
 
+# Find the connected device by comparing the IP that connected with the known IPs from the radioList
+# TEMPORARY FUNCTION: because we are currently launching 2 clients from the
+# same laptop, they will have the same IP, so use ports instead
+def getRadio_port(port):
+    # Start of by checking if the radio exists
+    for radio in radioList:
+        if (port == radio.port):
+            return radio
+
+    # If previous loop does not find the radio, create a new one and return it
+    print("Unknown connection from port", port)
+    return -1
+
+
 # Setup a connection with a client. Tell client to start measuring AoA and then periodically request this angle.
 def setupConnection(ip, port):
     # Create a server socket at desired port
@@ -64,7 +79,7 @@ def setupConnection(ip, port):
     print("Connection from:" + str(addr))
 
     # Get current radio object
-    radio = getRadio(addr[0])
+    radio = getRadio_port(port)
     if (radio == -1):
         print("Shutting down")
         return -1
@@ -82,33 +97,19 @@ def setupConnection(ip, port):
         s.listen(1)                             # The 1 specifies the backlog parameter which is the amount of allowed connections
         conn, addr = s.accept()                 # conn = a new socket to send/rcv data; addr = the address on the other end
 
-        if (state == 'run'):
-            command = 'AoA'
-            conn.sendall(command.encode('utf-8'))
-            message_enc = conn.recv(1024)
-            message_dec = aoa_b.decode('utf-8')
-            messageList = message_dec.strip(' ()\n').split(',')
-            AoA = Decimal(messageList[0])
-            timestamp = Decimal((messageList[1]))
+        command = 'AoA'
+        conn.sendall(command.encode('utf-8'))
+
+        message_enc = conn.recv(1024)
+        message_dec = message_enc.decode('utf-8')
+        #print("MESSAGE DEC", message_dec)
+        messageList = message_dec.strip(' ()\n').split(',')
+        #print("MESSAGE LIST", messageList)
+        AoA = Decimal(messageList[0])
+        timestamp = Decimal((messageList[1]))
                     
-            radio.aoa = float(AoA)
-        else:
-            # System is paused, so keep checking if it is unpaused
-            while True:
-                if (state == 'run'):
-                    command = 'AoA'
-                    conn.sendall(command.encode('utf-8'))
-                    message_enc = conn.recv(1024)
-                    message_dec = aoa_b.decode('utf-8')
-                    messageList = message_dec.strip(' ()\n').split(',')
-                    AoA = Decimal(messageList[0])
-                    timestamp = Decimal((messageList[1]))
-                    
-                    radio.aoa = float(AoA)
-                elif (state == 'quit'):
-                    break
-                else:
-                    time.sleep(0.5)
+        radio.aoa = float(AoA)
+
         #print("AoA is: ", radio.aoa)
         time.sleep(0.5)
         
@@ -116,6 +117,7 @@ def setupConnection(ip, port):
     s.listen(1)
     conn, addr = s.accept()
     command = 'Shut down'
+    print('Commanding clients to shut down')
     conn.sendall(command.encode('utf-8'))
     time.sleep(1)
         
@@ -168,9 +170,6 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
     # Compute intersect of 2 lines
     x = (b2 - b1)/(a1 - a2)
     y = a1*x + b1 # y = a2*x + b2 (also works)
-
-    #print("a1:",a1)
-    #print("a2:",a2)
 
     # Plot lines and intersect if desired
     if plot:
@@ -236,12 +235,9 @@ def triangulate_n():
     n = 0
     for i in range(narg-1):
         # Make sure that a and b are not equal to inf. Else this could have given a division by 0 in the previous step
-        if (np.abs(A[i]) < 1e6 and np.abs(B[i]) < 1e6):
-            x = x + X[i]
-            y = y + Y[i]
-            n = n + 1
-        else:
-            pass
+        x = x + X[i]
+        y = y + Y[i]
+        n = n + 1
     x = x/n
     y = y/n
     return (x, y)
@@ -303,7 +299,7 @@ def computePosition():
             '''
             xpos = round(xpos, 3)
             ypos = round(ypos, 3)
-            print("Transmitter position is:", xpos, ypos)
+            #print("Transmitter position is:", xpos, ypos)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):
             time.sleep(0.1)
@@ -311,7 +307,8 @@ def computePosition():
             break
         
 ##################################################################
-# Everything related to the GUI
+#              Everything related to the GUI                     #
+##################################################################
 
 # Class for the main functionality of the GUI
 class MainMenu:
@@ -400,7 +397,7 @@ class EnvCanvas:
     def updateCanvas(self):
         #print("update canvas")
         dx, dy = self.updatePosition()
-        self.C.move(self.C.TX, 2*dx, 2*dy)  # Move it twice as for to maintain scaling within figure
+        self.C.move(self.C.TX, 2*dy, 2*dx)  # Move it twice as for to maintain scaling within figure
         self.root.after(100, self.updateCanvas)
 
     def updatePosition(self):
@@ -439,7 +436,7 @@ def main():
     filename = 'config.txt'
     readConfig(filename)
 
-    serverIP = '192.168.192.1'
+    serverIP = '192.168.192.2'
     serverPort = 5000
     
     # Define the amount of SDRs that will be computing AoAs

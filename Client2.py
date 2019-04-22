@@ -1,5 +1,5 @@
 import SharedFunctions as sf
-import musicVervainToadflax_t as music
+import musicHazelPipkin_t as music
 import threading
 import os
 import time
@@ -27,7 +27,7 @@ def main():
     # Create a client socket at the same IP and port as receiver in order to send to the server
     #serverIP = '192.168.0.128'
     serverIP = '192.168.192.2'
-    serverPort = 5001
+    serverPort = 5000
 
     filename = os.getcwd()
     filename += '/angle.txt'
