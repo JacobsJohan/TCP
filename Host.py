@@ -3,7 +3,6 @@ import socket
 import platform
 import threading
 import time
-import keyboard
 import matplotlib.pyplot as plt
 import numpy as np
 import json
@@ -120,38 +119,7 @@ def setupConnection(ip, port):
     print('Commanding clients to shut down')
     conn.sendall(command.encode('utf-8'))
     time.sleep(1)
-        
 
-# Function that checks if q is pressed on the keyboard. If so, it will shut down the system. Requires sudo access.
-# NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
-def shutdownCheck():
-    global state
-    while True:
-        try:
-            if (keyboard.is_pressed('q')):
-                print("Quitting")
-                state = 'quit'
-                break
-            else:
-                pass
-        except BaseException as e:
-            print(e)
-            break
-
-# Function that checks if q is pressed on the keyboard. If so, it will shut down the system.
-# NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
-def inputCheck():
-    global state
-    while True:
-        command = raw_input("Enter q to quit \n -->")
-        #command = str(input("Enter q to quit \n -->"))
-        if (command == 'q'):
-            state = 'quit'
-            break
-        else:
-            pass
-    print("Shutting down")
-    return 0
 
 
 # Perform triangulation based on 2 computed angles of arrival   
@@ -473,6 +441,38 @@ if __name__ == '__main__':
 
 
 # DEPRECATED
+# Function that checks if q is pressed on the keyboard. If so, it will shut down the system. Requires sudo access.
+# NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
+def shutdownCheck():
+    global state
+    while True:
+        try:
+            if (keyboard.is_pressed('q')):
+                print("Quitting")
+                state = 'quit'
+                break
+            else:
+                pass
+        except BaseException as e:
+            print(e)
+            break
+
+# Function that checks if q is pressed on the keyboard. If so, it will shut down the system.
+# NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
+def inputCheck():
+    global state
+    while True:
+        command = raw_input("Enter q to quit \n -->")
+        #command = str(input("Enter q to quit \n -->"))
+        if (command == 'q'):
+            state = 'quit'
+            break
+        else:
+            pass
+    print("Shutting down")
+    return 0
+
+
 def commandBasedConn():
     # Define the amount of SDRs that will be computing AoAs
     
