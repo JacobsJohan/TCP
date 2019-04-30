@@ -7,8 +7,9 @@ import keyboard
 import matplotlib.pyplot as plt
 import numpy as np
 import json
-from tkinter import *
+from Tkinter import *
 import random
+from decimal import Decimal
 
 radioList = []
 state = 'ini'     # Can be 'run', 'pause' or 'quit' (or 'ini' for initial state)
@@ -22,20 +23,22 @@ HEIGHT = 480
 # Create a radio with an IP-address, x position and y position (location of the
 # antenna array)
 class Radio:
-    def __init__(self, ip, x, y, orientation):
+    def __init__(self, ip, port, x, y, orientation):
         #print("Creating radio")
         self.ip = ip
+        self.port = port
         self.x = x
         self.y = y
         self.aoa = 0                    # Initial AoA is 0
+        self.timestamp = 0              # Initial timestamp is 0
         self.orientation = orientation  # Relative orientation for triangulation
 
 # Function to read config file. On each line of the config file should be a dictionary with the anchor IP, x-position and y-position
 def readConfig(filename):
     with open(filename, 'r') as f:
         for line in f:
-            dict = json.loads(line)
-            radio = Radio(dict['ip'], dict['x'], dict['y'], dict['orientation'])
+            Dict = json.loads(line)
+            radio = Radio(Dict['ip'], Dict['port'], Dict['x'], Dict['y'], Dict['orientation'])
             radioList.append(radio)
 
 
@@ -51,8 +54,25 @@ def getRadio(ip):
     return -1
 
 
+# Find the connected device by comparing the IP that connected with the known IPs from the radioList
+# TEMPORARY FUNCTION: because we are currently launching 2 clients from the
+# same laptop, they will have the same IP, so use ports instead
+def getRadio_port(port):
+    # Start of by checking if the radio exists
+    for radio in radioList:
+        if (port == radio.port):
+            return radio
+
+    # If previous loop does not find the radio, create a new one and return it
+    print("Unknown connection from port", port)
+    return -1
+
+timestampOld = Decimal(time.time())
+timestampNew = Decimal(time.time())
+dt = 1
 # Setup a connection with a client. Tell client to start measuring AoA and then periodically request this angle.
 def setupConnection(ip, port):
+    global timestampOld, timestampNew, dt
     # Create a server socket at desired port
     s = sf.createSocket(ip, port, serverBool=True)
 
@@ -62,7 +82,7 @@ def setupConnection(ip, port):
     print("Connection from:" + str(addr))
 
     # Get current radio object
-    radio = getRadio(addr[0])
+    radio = getRadio_port(port)
     if (radio == -1):
         print("Shutting down")
         return -1
@@ -80,23 +100,26 @@ def setupConnection(ip, port):
         s.listen(1)                             # The 1 specifies the backlog parameter which is the amount of allowed connections
         conn, addr = s.accept()                 # conn = a new socket to send/rcv data; addr = the address on the other end
 
-        if (state == 'run'):
-            command = 'AoA'
-            conn.sendall(command.encode('utf-8'))
-            aoa_b = conn.recv(1024)
-            radio.aoa = float(aoa_b.decode('utf-8'))
-        else:
-            # System is paused, so keep checking if it is unpaused
-            while True:
-                if (state == 'run'):
-                    command = 'AoA'
-                    conn.sendall(command.encode('utf-8'))
-                    aoa_b = conn.recv(1024)
-                    radio.aoa = float(aoa_b.decode('utf-8'))
-                elif (state == 'quit'):
-                    break
-                else:
-                    time.sleep(0.5)
+        command = 'AoA'
+        conn.sendall(command.encode('utf-8'))
+
+        message_enc = conn.recv(1024)
+        message_dec = message_enc.decode('utf-8')
+        #print("MESSAGE DEC", message_dec)
+        messageList = message_dec.strip(' ()\n').split(',')
+        #print("MESSAGE LIST", messageList)
+        AoA = Decimal(messageList[0])
+
+        # only compute dt for 1 anchor
+        '''
+        if port == 5000:
+            timestampNew = Decimal((messageList[1]))
+            dt = abs(timestampNew - timestampOld)
+            timestampOld = timestampNew
+            #print(dt)
+        '''
+        radio.aoa = float(AoA)
+
         #print("AoA is: ", radio.aoa)
         time.sleep(0.5)
         
@@ -104,40 +127,10 @@ def setupConnection(ip, port):
     s.listen(1)
     conn, addr = s.accept()
     command = 'Shut down'
+    print('Commanding clients to shut down')
     conn.sendall(command.encode('utf-8'))
     time.sleep(1)
         
-
-# Function that checks if q is pressed on the keyboard. If so, it will shut down the system. Requires sudo access.
-# NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
-def shutdownCheck():
-    global state
-    while True:
-        try:
-            if (keyboard.is_pressed('q')):
-                print("Quitting")
-                state = 'quit'
-                break
-            else:
-                pass
-        except BaseException as e:
-            print(e)
-            break
-
-# Function that checks if q is pressed on the keyboard. If so, it will shut down the system.
-# NO LONGER NEEDED IF GUI STOP BUTTON IS IMPLEMENTED
-def inputCheck():
-    global state
-    while True:
-        command = raw_input("Enter q to quit \n -->")
-        #command = str(input("Enter q to quit \n -->"))
-        if (command == 'q'):
-            state = 'quit'
-            break
-        else:
-            pass
-    print("Shutting down")
-    return 0
 
 
 # Perform triangulation based on 2 computed angles of arrival   
@@ -156,9 +149,6 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
     # Compute intersect of 2 lines
     x = (b2 - b1)/(a1 - a2)
     y = a1*x + b1 # y = a2*x + b2 (also works)
-
-    #print("a1:",a1)
-    #print("a2:",a2)
 
     # Plot lines and intersect if desired
     if plot:
@@ -224,12 +214,9 @@ def triangulate_n():
     n = 0
     for i in range(narg-1):
         # Make sure that a and b are not equal to inf. Else this could have given a division by 0 in the previous step
-        if (np.abs(A[i]) < 1e6 and np.abs(B[i]) < 1e6):
-            x = x + X[i]
-            y = y + Y[i]
-            n = n + 1
-        else:
-            pass
+        x = x + X[i]
+        y = y + Y[i]
+        n = n + 1
     x = x/n
     y = y/n
     return (x, y)
@@ -250,6 +237,7 @@ def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
     return (x_new, P_new)
     
         
+# Without velocity
 
 F = np.identity(2)
 H = np.identity(2)
@@ -259,9 +247,10 @@ R = np.identity(2)
 Q = np.identity(2)*0.1
 
 
+
 # With velocity
 '''
-dt = 1
+dt = 0.1
 F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
 P_prev = np.identity(4)
@@ -277,26 +266,26 @@ def computePosition():
     # Continuously perform triangulation
     while True:
         if (state == 'run'):
-            '''
-            (xpos, ypos) = triangulate(radioList[0].x,
-                                       radioList[0].y,
-                                       radioList[0].aoa,
-                                       radioList[1].x,
-                                       radioList[1].y,
-                                       radioList[1].aoa,
-                                       plot=False)
-            '''
             (xpos, ypos) = triangulate_n()
+            xpos = round(xpos, 3)
+            ypos = round(ypos, 3)
 
             # Apply Kalman filter
+            
             meas = np.array((xpos, ypos))
             (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
             x_prev = x_new
             P_prev = P_new
+
+            xpos = round(x_new[0], 3)
+            ypos = round(x_new[1], 3)
+            #xpos = round(x_new[0,0], 3)
+            #ypos = round(x_new[1,0], 3)
             
-            xpos = round(x_new[0], 3) #xpos = round(xpos, 3)
-            ypos = round(x_new[1], 3) #ypos = round(ypos, 3)
+            
+            
             print("Transmitter position is:", xpos, ypos)
+            #print("Angle 1:", radioList[0].aoa, "Angle2:", radioList[1].aoa)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):
             time.sleep(0.1)
@@ -304,7 +293,8 @@ def computePosition():
             break
         
 ##################################################################
-# Everything related to the GUI
+#              Everything related to the GUI                     #
+##################################################################
 
 # Class for the main functionality of the GUI
 class MainMenu:
@@ -373,10 +363,15 @@ class EnvCanvas:
         self.C.table = self.C.create_rectangle(self.C.tableCoords)
 
         # Create a circle to display transmitter position
+        self.xpos_old = self.C.topleftx + xpos
+        self.ypos_old = self.C.topleftx + ypos
         self.xpos_new = self.C.topleftx + xpos
         self.ypos_new = self.C.toplefty + ypos
         self.C.TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
         self.C.TX = self.C.create_oval(self.C.TXCoords)
+
+        # Create counter object
+        self.counter = 0
 
         # Create rectangles for the positions of the antenna arrays
         self.array1Coords = (self.C.toplefty + 1*2, self.C.topleftx + 58*2, self.C.toplefty + 12*2, self.C.topleftx + 82*2)
@@ -384,6 +379,10 @@ class EnvCanvas:
 
         self.array2Coords = (self.C.toplefty + 106*2, self.C.topleftx + 141*2, self.C.toplefty + 130*2, self.C.topleftx + 152*2)
         self.array2 = self.C.create_rectangle(self.array2Coords)
+
+        # Draw a scale
+        self.scale = self.C.create_line(50, 340, 70, 340)
+        self.C.itemconfig(self.scale, fill='blue')
         
         self.C.pack()
         self.updateCanvas()
@@ -393,23 +392,40 @@ class EnvCanvas:
     def updateCanvas(self):
         #print("update canvas")
         dx, dy = self.updatePosition()
-        self.C.move(self.C.TX, 2*dx, 2*dy)  # Move it twice as for to maintain scaling within figure
+        self.C.move(self.C.TX, 2*dy, 2*dx)  # Move it twice as much to maintain scaling within figure
         self.root.after(100, self.updateCanvas)
 
     def updatePosition(self):
-        # Previous position becomes old position
-        self.xpos_old = self.xpos_new
-        self.ypos_old = self.ypos_new
-
+        #return 0,0
         # Update current position
         self.xpos_new = self.C.topleftx + xpos
-        self.ypos_new = self.C.toplefty + ypos 
+        self.ypos_new = self.C.toplefty + ypos
+
+        '''
+        # Check if new position is very far away, which is the case if AoA was incorrect
+        if (abs(self.xpos_old - self.xpos_new) > 50 or abs(self.ypos_old - self.ypos_new) > 50):
+            self.counter += 1
+            # If this happens more than 5 times, then the position probably did change that much.
+            # Reset counter and compute dx, dy
+            if (self.counter > 4):
+                pass
+            else:
+                return 0, 0
+        #print("updating position")
+        # Reset counter
+        self.counter = 0
+        '''
 
         # Return dx and dy
         dx = (self.xpos_new - self.xpos_old)
         dy = (self.ypos_new - self.ypos_old)
         #dx = random.randint(-1,1)
         #dy = random.randint(-1,1)
+        
+        # Previous position becomes old position
+        self.xpos_old = self.xpos_new
+        self.ypos_old = self.ypos_new
+        
         return dx, dy
 
 
@@ -432,7 +448,7 @@ def main():
     filename = 'config.txt'
     readConfig(filename)
 
-    serverIP = '192.168.192.1'
+    serverIP = '192.168.192.2'
     serverPort = 5000
     
     # Define the amount of SDRs that will be computing AoAs
@@ -464,58 +480,3 @@ if __name__ == '__main__':
 
 
 
-
-'''
-
-
-# DEPRECATED
-def commandBasedConn():
-    # Define the amount of SDRs that will be computing AoAs
-    
-    while True:
-        try:
-            nrOfRadios = int(input("How many radios will be used? \n ->"))
-            break
-        except BaseException as e:
-            print(e)
-    
-
-    # Create a server socket at port 5000
-    #serverIP = '192.168.0.128'
-    serverIP = '192.168.0.250'
-    serverPort = 5000
-
-    s = sf.createSocket(serverIP, serverPort, serverBool=True)
-
-    while running:
-        s.listen(1)    # The 1 specifies the backlog parameter which is the amount of allowed connections
-        conn, addr = s.accept()    # conn = a new socket to send/rcv data; addr = the address on the other end
-        print("Connection from:" + str(addr))
-
-        # Check if ip already known
-        radio = getRadio(addr[0])
-
-        #data = int.from_bytes(data, byteorder='big')
-        #print("Received data is: ", data)
-        if (radio.ip == '192.168.0.170'):
-            print("Choose a command from: GNU, AoA, Shut down")
-            command = str(input("--> "))
-            conn.sendall(command.encode('utf-8'))
-
-            # Based on the given command, a reply is (not) expected
-            # GRC: tell client to run GNU radio flowgraph
-            if (command == 'GRC'):
-                print("No reply expected")
-            elif (command == 'AoA'):
-                aoa_b = conn.recv(1024)
-                aoa = int.from_bytes(aoa_b, byteorder='big')
-                print("AoA is: ", aoa)
-                # functionSetAoA
-            elif (command == 'Shut down'):
-                running = False
-            else:
-                print("Wrong command")
-
-        conn.close()
-    s.close()
-'''
