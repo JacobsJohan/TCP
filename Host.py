@@ -1,9 +1,6 @@
 import SharedFunctions as sf
-import socket
-import platform
 import threading
 import time
-import keyboard
 import matplotlib.pyplot as plt
 import numpy as np
 import json
@@ -221,6 +218,13 @@ def triangulate_n():
     y = y/n
     return (x, y)
 
+# Write position to file to analyse a bit later on
+def posToFile(xpos_, ypos_):
+    text = "(" + str(xpos_) + "," + str(ypos_) + ")\n"
+    filename = 'positions.txt'
+    with open(filename, 'a+') as f:
+        f.write(text)
+
 # Kalman filter for a system without known input
 def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
     # Prediction step
@@ -271,7 +275,7 @@ def computePosition():
             ypos = round(ypos, 3)
 
             # Apply Kalman filter
-            
+            '''
             meas = np.array((xpos, ypos))
             (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
             x_prev = x_new
@@ -281,17 +285,18 @@ def computePosition():
             ypos = round(x_new[1], 3)
             #xpos = round(x_new[0,0], 3)
             #ypos = round(x_new[1,0], 3)
-            
-            
-            
+            '''
+
+
             print("Transmitter position is:", xpos, ypos)
             #print("Angle 1:", radioList[0].aoa, "Angle2:", radioList[1].aoa)
+            posToFile(xpos, ypos)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):
             time.sleep(0.1)
         else:
             break
-        
+
 ##################################################################
 #              Everything related to the GUI                     #
 ##################################################################
@@ -303,7 +308,7 @@ class MainMenu:
         # Frame for 3 buttons
         self.btnFrame = Frame(root)
         self.btnFrame.grid(row = 0, column = 0, pady = 10)
-        
+
         # Add a start button
         self.startBtn = Button(self.btnFrame, text="Start", command=self.startApp)
         self.startBtn.grid(row = 0, column = 0, padx = WIDTH/8)
@@ -322,7 +327,7 @@ class MainMenu:
         self.canvasFrame.grid(row = 1, column = 0, pady = 10)
         canvasFrame = EnvCanvas(self.canvasFrame)
 
-        
+
 
     # Function to start triangulation
     def startApp(self):
@@ -350,7 +355,7 @@ class MainMenu:
 class EnvCanvas:
     def __init__(self, root):
         self.root = root
-        
+
         # Add the actual canvas
         self.C = Canvas(self.root, bg = "white", height = (HEIGHT - 100), width = (WIDTH - 50))
 
@@ -383,7 +388,7 @@ class EnvCanvas:
         # Draw a scale
         self.scale = self.C.create_line(50, 340, 70, 340)
         self.C.itemconfig(self.scale, fill='blue')
-        
+
         self.C.pack()
         self.updateCanvas()
 
