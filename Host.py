@@ -219,9 +219,8 @@ def triangulate_n():
     return (x, y)
 
 # Write position to file to analyse a bit later on
-def posToFile(xpos_, ypos_):
+def posToFile(filename, xpos_, ypos_):
     text = "(" + str(xpos_) + "," + str(ypos_) + ")\n"
-    filename = 'positions.txt'
     with open(filename, 'a+') as f:
         f.write(text)
 
@@ -241,27 +240,33 @@ def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
     return (x_new, P_new)
     
         
+filtering = 'Kalman_v'  # noKalman, Kalman, Kalman_v
 # Without velocity
+if filtering == 'Kalman':
+    F = np.identity(2)
+    H = np.identity(2)
+    P_prev = np.identity(2)
+    x_prev = np.array(([0], [0]))
+    R = np.identity(2)
+    Q = np.identity(2)*0.1
+elif filtering == 'Kalman_v':
+    # With velocity
+    dt = 0.1
+    F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
+    P_prev = np.identity(4)
+    x_prev = np.array(([0], [0], [0], [0]))
+    R = np.identity(2)
+    #Q = np.identity(4)*0.01
+    var_ax = 1
+    var_ay = 1
+    Q = np.array([[var_ax*pow(dt,2)/4, 0, var_ax*pow(dt,3)/2, 0],
+                  [0, var_ay * pow(dt, 2) / 4, 0, var_ay * pow(dt, 3) / 2],
+                  [var_ax*pow(dt,3)/2, 0, var_ax*pow(dt,2), 0],
+                  [0, var_ay*pow(dt,3)/2, 0, var_ay*pow(dt,2)]])
+else:
+    pass
 
-F = np.identity(2)
-H = np.identity(2)
-P_prev = np.identity(2)
-x_prev = np.array((0, 0))
-R = np.identity(2)
-Q = np.identity(2)*0.1
-
-
-
-# With velocity
-'''
-dt = 0.1
-F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
-H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
-P_prev = np.identity(4)
-x_prev = np.zeros((4, 1))
-R = np.identity(2)
-Q = np.identity(4)*0.000001
-'''
 
 # Continuosly compute the position of the transmitter, unless the system is paused.
 def computePosition():
@@ -271,26 +276,27 @@ def computePosition():
     while True:
         if (state == 'run'):
             (xpos, ypos) = triangulate_n()
-            xpos = round(xpos, 3)
-            ypos = round(ypos, 3)
 
-            # Apply Kalman filter
-            '''
-            meas = np.array((xpos, ypos))
-            (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
-            x_prev = x_new
-            P_prev = P_new
-
-            xpos = round(x_new[0], 3)
-            ypos = round(x_new[1], 3)
-            #xpos = round(x_new[0,0], 3)
-            #ypos = round(x_new[1,0], 3)
-            '''
-
+            # Save position to file for processing later on
+            filename = 'positionsPre.txt'
+            posToFile(filename, xpos, ypos)
+            #print("Transmitter position is:", xpos, ypos)
+            if (filtering == 'Kalman' or filtering == 'Kalman_v'):
+                meas = np.array(([xpos], [ypos]))
+                (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
+                x_prev = x_new
+                P_prev = P_new
+                xpos = round(x_new[0], 3)
+                ypos = round(x_new[1], 3)
+            else:
+                xpos = round(xpos, 3)
+                ypos = round(ypos, 3)
 
             print("Transmitter position is:", xpos, ypos)
-            #print("Angle 1:", radioList[0].aoa, "Angle2:", radioList[1].aoa)
-            posToFile(xpos, ypos)
+
+            # Save results to file after Kalman filter to compare
+            filename = 'positionsPost.txt'
+            posToFile(filename, xpos, ypos)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):
             time.sleep(0.1)
@@ -453,7 +459,7 @@ def main():
     filename = 'config.txt'
     readConfig(filename)
 
-    serverIP = '192.168.192.2'
+    serverIP = '192.168.192.1'
     serverPort = 5000
     
     # Define the amount of SDRs that will be computing AoAs
