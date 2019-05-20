@@ -8,6 +8,7 @@ from Tkinter import *
 import random
 from decimal import Decimal
 
+# Main variables
 radioList = []
 state = 'ini'     # Can be 'run', 'pause' or 'quit' (or 'ini' for initial state)
 xpos = 0
@@ -17,17 +18,44 @@ ypos = 0
 WIDTH = 720
 HEIGHT = 480
 
-# Create a radio with an IP-address, x position and y position (location of the
-# antenna array)
+# Kalman filter parameters
+filtering = 'Kalman_v'  # noKalman, Kalman, Kalman_v
+# Without velocity
+if filtering == 'Kalman':
+    F = np.identity(2)
+    H = np.identity(2)
+    P_prev = np.identity(2)
+    x_prev = np.array(([0], [0]))
+    R = np.identity(2)
+    Q = np.identity(2)*0.1
+elif filtering == 'Kalman_v':
+    # With velocity
+    dt = 0.1
+    F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
+    P_prev = np.identity(4)
+    x_prev = np.array(([0], [0], [0], [0]))
+    R = np.identity(2)
+    #Q = np.identity(4)*0.01
+    var_ax = 1
+    var_ay = 1
+    Q = np.array([[var_ax*pow(dt,2)/4, 0, var_ax*pow(dt,3)/2, 0],
+                  [0, var_ay * pow(dt, 2) / 4, 0, var_ay * pow(dt, 3) / 2],
+                  [var_ax*pow(dt,3)/2, 0, var_ax*pow(dt,2), 0],
+                  [0, var_ay*pow(dt,3)/2, 0, var_ay*pow(dt,2)]])
+else:
+    pass
+
+# Create a radio object for each receiver anchor that is used
 class Radio:
     def __init__(self, ip, port, x, y, orientation):
         #print("Creating radio")
-        self.ip = ip
-        self.port = port
-        self.x = x
+        self.ip = ip                    # Anchor IP-address
+        self.port = port                # Anchor Port (can be used to discriminate anchors on a single PC)
+        self.x = x                      # Anchor position
         self.y = y
         self.aoa = 0                    # Initial AoA is 0
-        self.timestamp = 0              # Initial timestamp is 0
+        self.timestamp = 0              # Timestamp of the last AoA
         self.orientation = orientation  # Relative orientation for triangulation
 
 # Function to read config file. On each line of the config file should be a dictionary with the anchor IP, x-position and y-position
@@ -64,12 +92,9 @@ def getRadio_port(port):
     print("Unknown connection from port", port)
     return -1
 
-timestampOld = Decimal(time.time())
-timestampNew = Decimal(time.time())
-dt = 1
+
 # Setup a connection with a client. Tell client to start measuring AoA and then periodically request this angle.
 def setupConnection(ip, port):
-    global timestampOld, timestampNew, dt
     # Create a server socket at desired port
     s = sf.createSocket(ip, port, serverBool=True)
 
@@ -89,26 +114,24 @@ def setupConnection(ip, port):
     conn.sendall(command.encode('utf-8'))
 
     # Wait 10s to ensure everything is up and running
-    time.sleep(2)
+    time.sleep(10)
     
 
     # Now that everything is up and running, continuously ask for the AoA
     while (state != 'quit'):
-        s.listen(1)                             # The 1 specifies the backlog parameter which is the amount of allowed connections
-        conn, addr = s.accept()                 # conn = a new socket to send/rcv data; addr = the address on the other end
+        s.listen(1)                   # The 1 specifies the backlog parameter which is the amount of allowed connections
+        conn, addr = s.accept()       # conn = a new socket to send/rcv data; addr = the address on the other end
 
         command = 'AoA'
         conn.sendall(command.encode('utf-8'))
 
         message_enc = conn.recv(1024)
         message_dec = message_enc.decode('utf-8')
-        #print("MESSAGE DEC", message_dec)
         messageList = message_dec.strip(' ()\n').split(',')
-        #print("MESSAGE LIST", messageList)
         AoA = Decimal(messageList[0])
 
         # only compute dt for 1 anchor
-        '''
+        ''' Not needed for anything
         if port == 5000:
             timestampNew = Decimal((messageList[1]))
             dt = abs(timestampNew - timestampOld)
@@ -116,9 +139,9 @@ def setupConnection(ip, port):
             #print(dt)
         '''
         radio.aoa = float(AoA)
-
-        #print("AoA is: ", radio.aoa)
-        time.sleep(0.5)
+        # This sleep is here to smoothen TCP.
+        # If too many requests are made per second, then the TCP connection tends to break, making the system crash.
+        time.sleep(0.01)
         
     # When running = False, send message to client to shut down
     s.listen(1)
@@ -166,8 +189,9 @@ def triangulate(x1, y1, theta1, x2, y2, theta2, plot=False):
 
     return (x, y)
 
-# Takes tuples of 4 arguments as input (xpos, ypos, angle, orientation) and performs triangulation based on that
-# by taking the average over the n computed positions
+
+# Perform triangulation based on the AoA from n anchors. The amount of anchors used is defined by the amount of entries
+# in the config.txt file
 def triangulate_n():
     narg = len(radioList)
     if (narg < 2):
@@ -187,7 +211,6 @@ def triangulate_n():
         
         # Check if the angle needs to be adjusted based on the position of the antenna array
         if (orientation == 1):
-            #theta = np.pi - theta
             theta = theta - np.pi/2
         elif (orientation == 2):
             theta = np.pi + theta
@@ -224,6 +247,12 @@ def posToFile(filename, xpos_, ypos_):
     with open(filename, 'a+') as f:
         f.write(text)
 
+# Write a variable to a file (e.g. the aoa)
+def varToFile(filename, var):
+    text = str(var) + "\n"
+    with open(filename, 'a+') as f:
+        f.write(text)
+
 # Kalman filter for a system without known input
 def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
     # Prediction step
@@ -236,37 +265,9 @@ def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
     P_new = np.matmul((np.identity(K.shape[0]) - np.matmul(K, H)), P_hat)
     y_tilde = y - np.matmul(H, x_hat)
     x_new = x_hat + np.matmul(K, y_tilde)
-    # delta = np.abs(x_prev[2,1] - x_new[2,1])
     return (x_new, P_new)
     
         
-filtering = 'Kalman_v'  # noKalman, Kalman, Kalman_v
-# Without velocity
-if filtering == 'Kalman':
-    F = np.identity(2)
-    H = np.identity(2)
-    P_prev = np.identity(2)
-    x_prev = np.array(([0], [0]))
-    R = np.identity(2)
-    Q = np.identity(2)*0.1
-elif filtering == 'Kalman_v':
-    # With velocity
-    dt = 0.1
-    F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
-    H = np.array([[1, 0, 0, 0], [0, 1, 0, 0]])
-    P_prev = np.identity(4)
-    x_prev = np.array(([0], [0], [0], [0]))
-    R = np.identity(2)
-    #Q = np.identity(4)*0.01
-    var_ax = 1
-    var_ay = 1
-    Q = np.array([[var_ax*pow(dt,2)/4, 0, var_ax*pow(dt,3)/2, 0],
-                  [0, var_ay * pow(dt, 2) / 4, 0, var_ay * pow(dt, 3) / 2],
-                  [var_ax*pow(dt,3)/2, 0, var_ax*pow(dt,2), 0],
-                  [0, var_ay*pow(dt,3)/2, 0, var_ay*pow(dt,2)]])
-else:
-    pass
-
 
 # Continuosly compute the position of the transmitter, unless the system is paused.
 def computePosition():
@@ -277,10 +278,15 @@ def computePosition():
         if (state == 'run'):
             (xpos, ypos) = triangulate_n()
 
-            # Save position to file for processing later on
+            # Save position and angles to files for processing later on
+            '''
             filename = 'positionsPre.txt'
-            posToFile(filename, xpos, ypos)
-            #print("Transmitter position is:", xpos, ypos)
+            #posToFile(filename, xpos, ypos)
+            filename = 'aoa_1.txt'
+            #varToFile(filename, radioList[0].aoa)
+            filename = 'aoa_2.txt'
+            #varToFile(filename, radioList[1].aoa)
+            '''
             if (filtering == 'Kalman' or filtering == 'Kalman_v'):
                 meas = np.array(([xpos], [ypos]))
                 (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
@@ -288,15 +294,17 @@ def computePosition():
                 P_prev = P_new
                 xpos = round(x_new[0], 3)
                 ypos = round(x_new[1], 3)
+
+                # Save the covariance matrix to a file for processing later on
+                '''
+                filename = 'P_x.txt'
+                #varToFile(filename, P_new[0,0])
+                '''
             else:
                 xpos = round(xpos, 3)
                 ypos = round(ypos, 3)
 
             print("Transmitter position is:", xpos, ypos)
-
-            # Save results to file after Kalman filter to compare
-            filename = 'positionsPost.txt'
-            posToFile(filename, xpos, ypos)
             time.sleep(0.1)
         elif (state == 'pause' or state == 'ini'):
             time.sleep(0.1)
@@ -381,7 +389,7 @@ class EnvCanvas:
         self.C.TXCoords = (self.ypos_new, self.xpos_new, self.ypos_new + 5, self.xpos_new + 5)
         self.C.TX = self.C.create_oval(self.C.TXCoords)
 
-        # Create counter object
+        # Create counter object (used to count how often a new AoA is very far away)
         self.counter = 0
 
         # Create rectangles for the positions of the antenna arrays
@@ -447,8 +455,6 @@ def GUI():
 
     MainMenu(root)
 
-    #threading.Thread(target=triangulation).start()
-
     root.mainloop()
 
 def main():
@@ -475,10 +481,8 @@ def main():
     for i in range(nrOfRadios):
         serverPort += i
         threading.Thread(target = setupConnection, args = (serverIP, serverPort)).start()
-    
-    #print("Press q to quit")
-    #threading.Thread(target = inputCheck).start() #blocks threads
-    #threading.Thread(target = shutdownCheck).start()
+
+    # Start the thread to compute the transmitter position. Nothing will happen until the start button is pressed.
     threading.Thread(target = computePosition).start()
 
     # Run the graphical user interface
