@@ -25,7 +25,6 @@ def main():
     print("Starting up client")
 
     # Create a client socket at the same IP and port as receiver in order to send to the server
-    #serverIP = '192.168.0.128'
     serverIP = '192.168.192.1'
     serverPort = 5001
 
@@ -54,10 +53,8 @@ def main():
         else:
             print("Got unknown command: ", task)
         s.close()
-    #clientSock.close() #not needed apparently
 
 
 
 if __name__ == '__main__':
     main()
-

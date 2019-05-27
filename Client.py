@@ -51,10 +51,8 @@ def main():
         else:
             print("Got unknown command: ", task)
         s.close()
-    #clientSock.close() #not needed apparently
 
 
 
 if __name__ == '__main__':
     main()
-
