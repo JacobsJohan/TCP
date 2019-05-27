@@ -3,7 +3,7 @@
 ##################################################
 # GNU Radio Python Flow Graph
 # Title: Musichazelpipkin T
-# Generated: Tue May  7 09:55:07 2019
+# Generated: Mon May 27 10:00:35 2019
 ##################################################
 
 if __name__ == '__main__':
@@ -26,8 +26,8 @@ from gnuradio import uhd
 from gnuradio.eng_option import eng_option
 from gnuradio.filter import firdes
 from optparse import OptionParser
+import Music
 import custom
-import music
 import sip
 import sys
 import time
@@ -132,7 +132,6 @@ class musicHazelPipkin_t(gr.top_block, Qt.QWidget):
         self.qtgui_number_sink_0.enable_autoscale(False)
         self._qtgui_number_sink_0_win = sip.wrapinstance(self.qtgui_number_sink_0.pyqwidget(), Qt.QWidget)
         self.top_grid_layout.addWidget(self._qtgui_number_sink_0_win)
-        self.music_musicToFile2_0 = music.musicToFile2(4, 100000, 1, 0.06, freq/1e6)
         self.custom_Arg_to_Complex_0_1 = custom.Arg_to_Complex()
         self.custom_Arg_to_Complex_0_0 = custom.Arg_to_Complex()
         self.custom_Arg_to_Complex_0 = custom.Arg_to_Complex()
@@ -145,29 +144,30 @@ class musicHazelPipkin_t(gr.top_block, Qt.QWidget):
         self.analog_const_source_x_0_1 = analog.sig_source_f(0, analog.GR_CONST_WAVE, 0, 0, 4.830)
         self.analog_const_source_x_0_0 = analog.sig_source_f(0, analog.GR_CONST_WAVE, 0, 0, 4.765)
         self.analog_const_source_x_0 = analog.sig_source_f(0, analog.GR_CONST_WAVE, 0, 0, 5.965)
+        self.Music_music_0 = Music.music(4, 30000, 1, 0.06, freq/1e6, 0.01)
 
 
 
         ##################################################
         # Connections
         ##################################################
+        self.connect((self.Music_music_0, 0), (self.qtgui_number_sink_0, 0))
         self.connect((self.analog_const_source_x_0, 0), (self.blocks_multiply_const_vxx_0, 0))
         self.connect((self.analog_const_source_x_0_0, 0), (self.blocks_multiply_const_vxx_0_0, 0))
         self.connect((self.analog_const_source_x_0_1, 0), (self.blocks_multiply_const_vxx_0_1, 0))
         self.connect((self.blocks_multiply_const_vxx_0, 0), (self.custom_Arg_to_Complex_0, 0))
         self.connect((self.blocks_multiply_const_vxx_0_0, 0), (self.custom_Arg_to_Complex_0_0, 0))
         self.connect((self.blocks_multiply_const_vxx_0_1, 0), (self.custom_Arg_to_Complex_0_1, 0))
-        self.connect((self.blocks_multiply_xx_0, 0), (self.music_musicToFile2_0, 1))
-        self.connect((self.blocks_multiply_xx_0_0, 0), (self.music_musicToFile2_0, 3))
-        self.connect((self.blocks_multiply_xx_0_1, 0), (self.music_musicToFile2_0, 2))
+        self.connect((self.blocks_multiply_xx_0, 0), (self.Music_music_0, 1))
+        self.connect((self.blocks_multiply_xx_0_0, 0), (self.Music_music_0, 3))
+        self.connect((self.blocks_multiply_xx_0_1, 0), (self.Music_music_0, 2))
         self.connect((self.custom_Arg_to_Complex_0, 0), (self.blocks_multiply_xx_0, 1))
         self.connect((self.custom_Arg_to_Complex_0_0, 0), (self.blocks_multiply_xx_0_1, 1))
         self.connect((self.custom_Arg_to_Complex_0_1, 0), (self.blocks_multiply_xx_0_0, 1))
-        self.connect((self.music_musicToFile2_0, 0), (self.qtgui_number_sink_0, 0))
+        self.connect((self.uhd_usrp_source_0, 0), (self.Music_music_0, 0))
         self.connect((self.uhd_usrp_source_0, 1), (self.blocks_multiply_xx_0, 0))
         self.connect((self.uhd_usrp_source_0, 3), (self.blocks_multiply_xx_0_0, 0))
         self.connect((self.uhd_usrp_source_0, 2), (self.blocks_multiply_xx_0_1, 0))
-        self.connect((self.uhd_usrp_source_0, 0), (self.music_musicToFile2_0, 0))
 
     def closeEvent(self, event):
         self.settings = Qt.QSettings("GNU Radio", "musicHazelPipkin_t")
@@ -200,6 +200,7 @@ def shutDown(qapp):
             break
         else:
             time.sleep(1)
+
 
 def main(top_block_cls=musicHazelPipkin_t, options=None):
 
