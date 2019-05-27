@@ -19,7 +19,7 @@ WIDTH = 720
 HEIGHT = 480
 
 # Kalman filter parameters
-filtering = 'Kalman_v'  # noKalman, Kalman, Kalman_v
+filtering = 'EKF'  # noKalman, Kalman, Kalman_v, EKF
 # Without velocity
 if filtering == 'Kalman':
     F = np.identity(2)
@@ -36,13 +36,29 @@ elif filtering == 'Kalman_v':
     P_prev = np.identity(4)
     x_prev = np.array(([0], [0], [0], [0]))
     R = np.identity(2)
-    #Q = np.identity(4)*0.01
-    var_ax = 1
-    var_ay = 1
+
+    var_ax = 1.6
+    var_ay = 1.6
     Q = np.array([[var_ax*pow(dt,2)/4, 0, var_ax*pow(dt,3)/2, 0],
                   [0, var_ay * pow(dt, 2) / 4, 0, var_ay * pow(dt, 3) / 2],
                   [var_ax*pow(dt,3)/2, 0, var_ax*pow(dt,2), 0],
                   [0, var_ay*pow(dt,3)/2, 0, var_ay*pow(dt,2)]])
+elif filtering == 'EKF':
+    dt = 0.2
+    F = np.array([[1, 0, dt, 0], [0, 1, dt, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    H = np.zeros((2,4))
+    P_prev = np.identity(4)
+    x_prev = np.zeros((4,1))
+    #x_prev[0,0] = 114.49
+    #x_prev[1,0] = 128.74
+    R = pow((np.pi/6), 2)*np.identity(2)
+    var_ax = 1.6
+    var_ay = 1.6
+    Q = np.array([[var_ax*pow(dt,2)/4, 0, var_ax*pow(dt,3)/2, 0],
+                  [0, var_ay * pow(dt, 2) / 4, 0, var_ay * pow(dt, 3) / 2],
+                  [var_ax*pow(dt,3)/2, 0, var_ax*pow(dt,2), 0],
+                  [0, var_ay*pow(dt,3)/2, 0, var_ay*pow(dt,2)]])
+
 else:
     pass
 
@@ -267,7 +283,45 @@ def KalmanFilter(x_prev, P_prev, y, F, H, Q, R):
     x_new = x_hat + np.matmul(K, y_tilde)
     return (x_new, P_new)
     
-        
+ 
+# Extended Kalman filter for a system with unknown input. Measurements are the AoAs
+# Important: set initial x_prev equal to initial measured position 
+# i.e. don't start filtering before you sort of have an idea of the TX position
+# This gives way better results
+def EKF_function(x_prev, P_prev, y, F, H, Q, R):
+    # Constants needed for the function
+    xrig1 = radioList[0].x
+    yrig1 = radioList[0].y
+    xrig2 = radioList[1].x
+    yrig2 = radioList[1].y
+
+    # Prediction step
+    x_hat = np.matmul(F, x_prev)
+    print(x_hat)
+    P_hat = np.matmul(np.matmul(F, P_prev), F.T) + Q
+
+    # Fill in H
+    H[0,0] = -(x_hat[1,0]-yrig1) / (pow(x_hat[0,0]-xrig1, 2) + pow(x_hat[1,0]-yrig1, 2));
+    H[0,1] = (x_hat[0,0]-xrig1) / (pow(x_hat[0,0]-xrig1, 2) + pow(x_hat[1,0]-yrig1, 2));
+    H[1,0] = -(x_hat[1,0]-yrig2) / (pow(x_hat[0,0]-xrig2, 2) + pow(x_hat[1,0]-yrig2, 2));
+    H[1,1] = (x_hat[0,0]-xrig2) / (pow(x_hat[0,0]-xrig2, 2) + pow(x_hat[1,0]-yrig2, 2));
+
+    # Innovation step
+    S = np.matmul(np.matmul(H, P_hat), H.T) + R
+    K = np.matmul(np.matmul(P_hat, H.T), np.linalg.inv(S))
+    P_new = np.matmul((np.identity(K.shape[0]) - np.matmul(K, H)), P_hat)
+
+    # Residual has updated formula
+    h = np.zeros((2,1))
+    h[0,0] = np.arctan((x_hat[1,0]-yrig1)/(x_hat[0,0]-xrig1))
+    if (h[0,0] < 0):
+        h[0,0] = h[0,0] + np.pi
+    h[1,0] = np.arctan((x_hat[1,0]-yrig2)/(x_hat[0,0]-xrig2))
+
+    y_tilde = y - h
+    x_new = x_hat + np.matmul(K, y_tilde)
+    return (x_new, P_new)
+
 
 # Continuosly compute the position of the transmitter, unless the system is paused.
 def computePosition():
@@ -276,33 +330,30 @@ def computePosition():
     # Continuously perform triangulation
     while True:
         if (state == 'run'):
-            (xpos, ypos) = triangulate_n()
-
-            # Save position and angles to files for processing later on
-            '''
-            filename = 'positionsPre.txt'
-            #posToFile(filename, xpos, ypos)
-            filename = 'aoa_1.txt'
-            #varToFile(filename, radioList[0].aoa)
-            filename = 'aoa_2.txt'
-            #varToFile(filename, radioList[1].aoa)
-            '''
-            if (filtering == 'Kalman' or filtering == 'Kalman_v'):
-                meas = np.array(([xpos], [ypos]))
-                (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
+            if (filtering == 'EKF'):
+                aoa1 = np.deg2rad(radioList[0].aoa)
+                aoa2 = np.deg2rad(radioList[1].aoa) - np.pi/2
+                meas = np.array(([aoa1], [aoa2]))
+                (x_new, P_new) = EKF_function(x_prev, P_prev, meas, F, H, Q, R)
                 x_prev = x_new
                 P_prev = P_new
                 xpos = round(x_new[0], 3)
                 ypos = round(x_new[1], 3)
 
-                # Save the covariance matrix to a file for processing later on
-                '''
-                filename = 'P_x.txt'
-                #varToFile(filename, P_new[0,0])
-                '''
             else:
-                xpos = round(xpos, 3)
-                ypos = round(ypos, 3)
+                (xpos, ypos) = triangulate_n()
+
+                if (filtering == 'Kalman' or filtering == 'Kalman_v'):
+                    meas = np.array(([xpos], [ypos]))
+                    (x_new, P_new) = KalmanFilter(x_prev, P_prev, meas, F, H, Q, R)
+                    x_prev = x_new
+                    P_prev = P_new
+                    xpos = round(x_new[0], 3)
+                    ypos = round(x_new[1], 3)
+
+                else:
+                    xpos = round(xpos, 3)
+                    ypos = round(ypos, 3)
 
             print("Transmitter position is:", xpos, ypos)
             time.sleep(0.1)
